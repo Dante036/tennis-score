@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Scoreboard - ScoreCount</title>
+    <style>
+        /* 基础样式 */
+        body {
+            font-family: Arial, sans-serif;
+            background: #2c7522;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .scoreboard {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #2c7522;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 球员计分区域 */
+        .player {
+            display: grid;
+            grid-template-columns: minmax(200px, 1fr) repeat(3, 120px);
+            gap: 20px;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            align-items: center;
+        }
+
+        .player1 {
+            background: white;
+        }
+
+        .player2 {
+            background: white;
+        }
+
+        .player-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0;
+            padding-right: 20px;
+        }
+
+        .score-section {
+            display: contents;
+        }
+
+        /* 分数显示统一样式 */
+        .score-box {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            min-width: 80px;
+        }
+
+        .score-box span {
+            display: inline-block;
+            min-width: 40px;
+            outline: none;
+        }
+
+        .score-box span:focus {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .sets-box {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .games-box {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .points-box {
+            background: #f5f5f5;
+        }
+
+        /* 控制按钮 */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        /* 计时器 */
+        .timer {
+            text-align: center;
+            font-size: 1.5em;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scoreboard">
+        <div class="player player1">
+            <h2 class="player-name" contenteditable="true">Player 1</h2>
+            <div class="score-section">
+                <div class="sets-box score-box">
+                    <span id="sets1" contenteditable="true">0</span>
+                </div>
+                <div class="games-box score-box">
+                    <span id="games1" contenteditable="true">0</span>
+                </div>
+                <div class="points-box score-box">
+                    <span id="score1" contenteditable="true">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="player player2">
+            <h2 class="player-name" contenteditable="true">Player 2</h2>
+            <div class="score-section">
+                <div class="sets-box score-box">
+                    <span id="sets2" contenteditable="true">0</span>
+                </div>
+                <div class="games-box score-box">
+                    <span id="games2" contenteditable="true">0</span>
+                </div>
+                <div class="points-box score-box">
+                    <span id="score2" contenteditable="true">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="updateScore(1)">Player1 +</button>
+            <button onclick="updateScore(2)">Player2 +</button>
+            <button onclick="resetMatch()">Reset Match</button>
+        </div>
+
+        <div class="timer">
+            <span id="minutes">00</span>:<span id="seconds">00</span>
+            <button onclick="startTimer()">Start Timer</button>
+        </div>
+    </div>
+
+    <script>
+        // 计分逻辑
+        let scores = [0, 0];
+        let games = [0, 0];
+        let sets = [0, 0];
+        let isDeuce = false;
+        let isTiebreak = false;  // 新增：是否处于抢七局
+        const scoreDisplay = ['0', '15', '30', '40'];
+
+        // 添加编辑事件监听
+        document.addEventListener('DOMContentLoaded', function () {
+            // 监听分数编辑
+            ['score1', 'score2'].forEach((id, index) => {
+                document.getElementById(id).addEventListener('input', function (e) {
+                    const value = e.target.textContent;
+                    if (isTiebreak) {
+                        // 抢七局直接使用数字分数
+                        scores[index] = parseInt(value) || 0;
+                    } else {
+                        // 更新内部分数状态
+                        const scoreIndex = scoreDisplay.indexOf(value);
+                        if (scoreIndex !== -1) {
+                            scores[index] = scoreIndex;
+                        } else if (value === 'AD') {
+                            scores[index] = 4;
+                            scores[1 - index] = 3;
+                            isDeuce = true;
+                        }
+                    }
+                });
+            });
+
+            // 监听局分编辑
+            ['games1', 'games2'].forEach((id, index) => {
+                document.getElementById(id).addEventListener('input', function (e) {
+                    const value = parseInt(e.target.textContent) || 0;
+                    games[index] = value;
+
+                    // 检查是否进入抢七局
+                    if (games[0] === 6 && games[1] === 6) {
+                        isTiebreak = true;
+                        scores = [0, 0];
+                        updateDisplay();
+                    }
+                });
+            });
+
+            // 监听盘分编辑
+            ['sets1', 'sets2'].forEach((id, index) => {
+                document.getElementById(id).addEventListener('input', function (e) {
+                    const value = parseInt(e.target.textContent) || 0;
+                    sets[index] = value;
+                });
+            });
+        });
+
+        function updateScore(player) {
+            const opponent = player === 1 ? 2 : 1;
+            const currentScore = document.getElementById(`score${player}`).textContent;
+            const opponentScore = document.getElementById(`score${opponent}`).textContent;
+
+            if (isTiebreak) {
+                // 抢七局直接加分
+                scores[player - 1]++;
+                // 检查是否赢得抢七局
+                if (scores[player - 1] >= 7 && scores[player - 1] - scores[opponent - 1] >= 2) {
+                    winSet(player);
+                    isTiebreak = false;
+                    scores = [0, 0];
+                }
+                updateDisplay();
+                return;
+            }
+
+            // 处理AD-40的情况
+            if (currentScore === 'AD') {
+                // AD方得分，赢得此局
+                winGame(player);
+                return;
+            }
+            if (opponentScore === 'AD') {
+                // 对手有AD，我方得分，回到40-40
+                scores = [3, 3];
+                isDeuce = true;
+                updateDisplay();
+                return;
+            }
+
+            // 处理40-40的情况
+            if (currentScore === '40' && opponentScore === '40') {
+                // 获得优势分
+                scores[player - 1] = 4;
+                scores[opponent - 1] = 3;
+                isDeuce = true;
+                updateDisplay();
+                return;
+            }
+
+            // 处理普通分数
+            const currentScoreIndex = scoreDisplay.indexOf(currentScore);
+            const opponentScoreIndex = scoreDisplay.indexOf(opponentScore);
+
+            if (currentScoreIndex !== -1) {
+                if (currentScore === '40') {
+                    // 如果当前是40分，对手分数小于40，则赢得此局
+                    if (opponentScoreIndex < 3) {
+                        winGame(player);
+                        return;
+                    }
+                } else {
+                    // 正常加分
+                    scores[player - 1] = currentScoreIndex + 1;
+                    updateDisplay();
+                }
+            }
+        }
+
+        function winGame(player) {
+            if (isTiebreak) {
+                // 抢七局得分
+                scores[player - 1]++;
+                // 检查是否赢得抢七局
+                if (scores[player - 1] >= 7 && scores[player - 1] - scores[player % 2] >= 2) {
+                    winSet(player);
+                    isTiebreak = false;
+                    scores = [0, 0];
+                }
+            } else {
+                games[player - 1]++;
+                // 检查是否需要进入抢七局
+                if (games[player - 1] === 6 && games[player % 2] === 6) {
+                    isTiebreak = true;
+                    scores = [0, 0];
+                } else if (games[player - 1] >= 6 && games[player - 1] - games[player % 2] >= 2) {
+                    winSet(player);
+                }
+            }
+            if (!isTiebreak) {
+                scores = [0, 0];
+                isDeuce = false;
+            }
+            updateDisplay();
+        }
+
+        function winSet(player) {
+            sets[player - 1]++;
+            games = [0, 0];
+        }
+
+        function updateDisplay() {
+            if (isTiebreak) {
+                // 抢七局显示普通数字分数
+                document.getElementById('score1').textContent = scores[0];
+                document.getElementById('score2').textContent = scores[1];
+            } else {
+                // 正常局显示网球分数
+                document.getElementById('score1').textContent =
+                    scores[0] < 4 ? scoreDisplay[scores[0]] :
+                        isDeuce ? (scores[0] > scores[1] ? 'AD' : '40') : '40';
+
+                document.getElementById('score2').textContent =
+                    scores[1] < 4 ? scoreDisplay[scores[1]] :
+                        isDeuce ? (scores[1] > scores[0] ? 'AD' : '40') : '40';
+            }
+
+            // 更新局数和盘数
+            document.getElementById('games1').textContent = games[0];
+            document.getElementById('games2').textContent = games[1];
+            document.getElementById('sets1').textContent = sets[0];
+            document.getElementById('sets2').textContent = sets[1];
+        }
+
+        function resetMatch() {
+            scores = [0, 0];
+            games = [0, 0];
+            sets = [0, 0];
+            isDeuce = false;
+            isTiebreak = false;
+            updateDisplay();
+        }
+
+        // 计时器逻辑
+        let timer;
+        let seconds = 0;
+
+        // 添加键盘事件监听
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'z') {
+                updateScore(1);
+            } else if (event.key === 'x') {
+                updateScore(2);
+            }
+        });
+
+        function startTimer() {
+            if (!timer) {
+                timer = setInterval(() => {
+                    seconds++;
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    document.getElementById('minutes').textContent = mins.toString().padStart(2, '0');
+                    document.getElementById('seconds').textContent = secs.toString().padStart(2, '0');
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+
+</html>
